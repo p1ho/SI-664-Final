@@ -51,16 +51,16 @@ INSERT IGNORE INTO planet (`planet_name`, `unsd_name`) VALUES ('Earth', 'World')
 CREATE TABLE IF NOT EXISTS region (
   `region_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
   `region_name` VARCHAR(100) NOT NULL UNIQUE,
-  `planet` INTEGER NOT NULL,
+  `planet_id` INTEGER NOT NULL,
   PRIMARY KEY (`region_id`),
-  FOREIGN KEY (`planet`) REFERENCES planet(`planet_id`) ON DELETE RESTRICT ON UPDATE CASCADE
+  FOREIGN KEY (`planet_id`) REFERENCES planet(`planet_id`) ON DELETE RESTRICT ON UPDATE CASCADE
 )
 ENGINE=InnoDB
 CHARACTER SET utf8mb4
 COLLATE utf8mb4_0900_ai_ci;
 
 -- Insert regions
-INSERT IGNORE INTO region (`region_name`, `planet`) VALUES
+INSERT IGNORE INTO region (`region_name`, `planet_id`) VALUES
   ('Africa', 1), ('Americas', 1), ('Asia', 1), ('Europe', 1), ('Oceania', 1);
 
 -- UNSD m49 sub-regions
