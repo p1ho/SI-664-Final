@@ -1,0 +1,414 @@
+-- Combine UN Statistics Division (UNSD) standard region, sub-regions, intermediate
+-- regions and countries or areas codes (M49) with NASA Meteorite Landing List.
+-- Source: https://unstats.un.org/unsd/methodology/m49/overview/
+-- Source: https://data.nasa.gov/Space-Science/Meteorite-Landings/gh4g-9sfh
+-- Consulted Dr. Anthony Whyte's work with unesco_heritage_sites
+
+-- I had some slight problem with importing from local data, I had a hacky
+-- solution that worked, but it'll give warning message on every row, but the
+-- data is imported correctly.
+
+-- Create Database
+
+CREATE DATABASE IF NOT EXISTS meteorite_landings;
+USE meteorite_landings;
+
+SET GLOBAL local_infile = TRUE;
+
+-- Drop previous tables
+
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS
+  planet,
+  region,
+  sub_region,
+  intermediate_region,
+  location,
+  country_area,
+  dev_status,
+  meteorite_landing,
+  meteorite_class;
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- Create Tables and Insert Values --
+
+-- UNSD Global "World".  Add Earth/World to give Antarctica a parent location.
+-- WARNING: "Global" is a MySQL reserved word so we can't use UNSD term.
+CREATE TABLE IF NOT EXISTS planet (
+  `planet_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `planet_name` VARCHAR(50) NOT NULL UNIQUE,
+  `unsd_name` VARCHAR(50) NULL,
+  PRIMARY KEY (`planet_id`)
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Insert "Earth/World"
+INSERT IGNORE INTO planet (`planet_name`, `unsd_name`) VALUES ('Earth', 'World');
+
+-- UNSD M49 Regions
+CREATE TABLE IF NOT EXISTS region (
+  `region_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `region_name` VARCHAR(100) NOT NULL UNIQUE,
+  `planet` INTEGER NOT NULL,
+  PRIMARY KEY (`region_id`),
+  FOREIGN KEY (`planet`) REFERENCES planet(`planet_id`) ON DELETE RESTRICT ON UPDATE CASCADE
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Insert regions
+INSERT IGNORE INTO region (`region_name`, `planet`) VALUES
+  ('Africa', 1), ('Americas', 1), ('Asia', 1), ('Europe', 1), ('Oceania', 1);
+
+-- UNSD m49 sub-regions
+CREATE TABLE IF NOT EXISTS sub_region (
+  `sub_region_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `sub_region_name` VARCHAR(255) NOT NULL UNIQUE,
+  `region_id` INTEGER NOT NULL,
+  PRIMARY KEY (`sub_region_id`),
+  FOREIGN KEY (`region_id`) REFERENCES region(`region_id`) ON DELETE RESTRICT ON UPDATE CASCADE
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Set FK variables and populate the sub_region table.
+SET @fk_africa =
+  (
+    SELECT region_id
+    FROM region
+    WHERE region_name = 'Africa'
+  );
+SET @fk_americas =
+  (
+    SELECT region_id
+    FROM region
+    WHERE region_name = 'Americas'
+  );
+SET @fk_asia =
+  (
+    SELECT region_id
+    FROM region
+    WHERE region_name = 'Asia'
+  );
+SET @fk_europe =
+  (
+    SELECT region_id
+    FROM region
+    WHERE region_name = 'Europe'
+  );
+SET @fk_oceania =
+  (
+    SELECT region_id
+    FROM region
+    WHERE region_name = 'Oceania'
+  );
+
+INSERT IGNORE INTO sub_region (sub_region_name, region_id) VALUES
+  ('Australia and New Zealand', @fk_oceania),
+  ('Central Asia', @fk_asia),
+  ('Eastern Asia', @fk_asia),
+  ('Eastern Europe', @fk_europe),
+  ('Latin America and the Caribbean', @fk_americas),
+  ('Melanesia', @fk_oceania),
+  ('Micronesia', @fk_oceania),
+  ('Northern Africa', @fk_africa),
+  ('Northern America', @fk_americas),
+  ('Northern Europe', @fk_europe),
+  ('Polynesia', @fk_oceania),
+  ('South-eastern Asia', @fk_asia),
+  ('Southern Asia', @fk_asia),
+  ('Southern Europe', @fk_europe),
+  ('Sub-Saharan Africa', @fk_africa),
+  ('Western Asia', @fk_asia),
+  ('Western Europe', @fk_europe);
+
+-- UNSD M49 intermediate regions.
+CREATE TABLE IF NOT EXISTS intermediate_region
+  (
+    `intermediate_region_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+    `intermediate_region_name` VARCHAR(100) NOT NULL UNIQUE,
+    `sub_region_id` INTEGER NOT NULL,
+    PRIMARY KEY (`intermediate_region_id`),
+    FOREIGN KEY (`sub_region_id`) REFERENCES sub_region(`sub_region_id`)
+      ON DELETE RESTRICT ON UPDATE CASCADE
+  )
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Set FK variables and populate the intermediate_region table.
+SET @fk_latin_am_carrib =
+  (
+    SELECT sub_region_id
+    FROM sub_region
+    WHERE sub_region_name = 'Latin America and the Caribbean'
+  );
+SET @fk_north_europe =
+  (
+    SELECT sub_region_id
+    FROM sub_region
+    WHERE sub_region_name = 'Northern Europe'
+  );
+SET @fk_sub_saharan =
+  (
+    SELECT sub_region_id
+    FROM sub_region
+    WHERE sub_region_name = 'Sub-Saharan Africa'
+  );
+
+INSERT IGNORE INTO intermediate_region (intermediate_region_name, sub_region_id) VALUES
+  ('Caribbean', @fk_latin_am_carrib),
+  ('Central America', @fk_latin_am_carrib),
+  ('Channel Islands', @fk_north_europe),
+  ('Eastern Africa', @fk_sub_saharan),
+  ('Middle Africa', @fk_sub_saharan),
+  ('South America', @fk_latin_am_carrib),
+  ('Southern Africa', @fk_sub_saharan),
+  ('Western Africa', @fk_sub_saharan);
+
+-- UNSD M49 Development Status
+CREATE TABLE IF NOT EXISTS dev_status (
+  `dev_status_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `dev_status_name` VARCHAR(25) NOT NULL UNIQUE,
+  PRIMARY KEY (`dev_status_id`)
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Insert dev_status options
+INSERT IGNORE INTO dev_status (dev_status_name) VALUES
+  ('Developing'), ('Developed');
+
+-- UNSD M49 country areas
+-- Temporary target table for UNSD data import
+CREATE TEMPORARY TABLE temp_country_area (
+  `country_area_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `region_name` VARCHAR(100) NULL,
+  `sub_region_name` VARCHAR(100) NULL,
+  `intermediate_region_name` VARCHAR(100) NULL,
+  `country_area_name` VARCHAR(255) NOT NULL,
+  `country_area_m49_code` SMALLINT(4) NOT NULL,
+  `country_area_iso_alpha3_code` CHAR(3) NULL,
+  `country_area_development_status` VARCHAR(25),
+  PRIMARY KEY (`country_area_id`)
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Load data from external file.
+-- Check for blank entries and set to NULL.
+LOAD DATA LOCAL INFILE 'D:/ASUS/Desktop/664/SI664-final/scripts/input/csv/un_area_country_codes-m49.csv'
+INTO TABLE temp_country_area
+  CHARACTER SET utf8mb4
+  FIELDS TERMINATED BY '\t'
+  ENCLOSED BY '"'
+  LINES TERMINATED BY '\r\n'
+  IGNORE 1 LINES
+  (@dummy, region_name, sub_region_name, intermediate_region_name, country_area_name, country_area_m49_code,
+   country_area_iso_alpha3_code, @dummy, @dummy, @dummy, country_area_development_status)
+
+  SET region_name = IF(region_name = '', NULL, region_name),
+  sub_region_name = IF(sub_region_name = '', NULL, sub_region_name),
+  intermediate_region_name = IF(intermediate_region_name = '', NULL, intermediate_region_name),
+  country_area_m49_code = IF(country_area_m49_code = '', NULL, country_area_m49_code),
+  country_area_iso_alpha3_code = IF(country_area_iso_alpha3_code = '', NULL, country_area_iso_alpha3_code),
+  country_area_development_status = IF(country_area_development_status = '', NULL, country_area_development_status);
+
+
+-- UNSD M49 countries and areas
+CREATE TABLE IF NOT EXISTS country_area  (
+  `country_area_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `country_area_name` VARCHAR(255) NOT NULL UNIQUE,
+  `region_id` INTEGER NULL,
+  `sub_region_id` INTEGER NULL,
+  `intermediate_region_id` INTEGER NULL,
+  `m49_code` SMALLINT(4) NOT NULL,
+  `iso_alpha3_code` CHAR(3) NOT NULL,
+  `dev_status_id` INT NULL,
+  PRIMARY KEY (`country_area_id`),
+  FOREIGN KEY (`region_id`) REFERENCES region(`region_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (`sub_region_id`) REFERENCES sub_region(`sub_region_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (`intermediate_region_id`) REFERENCES intermediate_region(`intermediate_region_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (`dev_status_id`) REFERENCES dev_status(`dev_status_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Insert country_area attributes only (N=249) from temp table
+INSERT IGNORE INTO country_area (
+  `country_area_name`,
+  `region_id`,
+  `sub_region_id`,
+  `intermediate_region_id`,
+  `m49_code`,
+  `iso_alpha3_code`,
+  `dev_status_id`
+)
+SELECT tc.country_area_name, r.region_id, sr.sub_region_id, ir.intermediate_region_id,
+       tc.country_area_m49_code, tc.country_area_iso_alpha3_code, ds.dev_status_id
+  FROM temp_country_area tc
+       LEFT JOIN region r
+              ON tc.region_name = r.region_name
+       LEFT JOIN sub_region sr
+              ON tc.sub_region_name = sr.sub_region_name
+       LEFT JOIN intermediate_region ir
+              ON tc.intermediate_region_name = ir.intermediate_region_name
+       LEFT JOIN dev_status ds
+              ON tc.country_area_development_status = ds.dev_status_name
+ WHERE IFNULL(tc.region_name, 0) = IFNULL(r.region_name, 0)
+   AND IFNULL(tc.sub_region_name, 0) = IFNULL(sr.sub_region_name, 0)
+   AND IFNULL(tc.intermediate_region_name, 0) = IFNULL(ir.intermediate_region_name, 0)
+   AND IFNULL(tc.country_area_development_status, 0) = IFNULL(ds.dev_status_name, 0)
+ ORDER BY tc.country_area_name;
+
+DROP TEMPORARY TABLE temp_country_area;
+
+-- Locations
+CREATE TABLE IF NOT EXISTS location (
+  `location_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `planet_id` INTEGER NOT NULL,
+  `region_id` INTEGER NULL,
+  `sub_region_id` INTEGER NULL,
+  `intermediate_region_id` INTEGER NULL,
+  PRIMARY KEY (`location_id`),
+  FOREIGN KEY (`planet_id`) REFERENCES planet(`planet_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (`region_id`) REFERENCES region(`region_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (`sub_region_id`) REFERENCES sub_region(`sub_region_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (`intermediate_region_id`) REFERENCES intermediate_region(`intermediate_region_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Next insert locations drawn from country_area (includes Antarctica).
+INSERT IGNORE INTO location (
+  planet_id,
+  region_id,
+  sub_region_id,
+  intermediate_region_id
+)
+SELECT 1 AS planet_id, region_id, sub_region_id, intermediate_region_id
+  FROM country_area
+ GROUP BY planet_id, region_id, sub_region_id, intermediate_region_id
+ ORDER BY planet_id, region_id, sub_region_id, intermediate_region_id;
+
+-- reformat country_area
+ALTER TABLE country_area
+       ADD COLUMN location_id INT NOT NULL DEFAULT 1 AFTER iso_alpha3_code,
+       ADD CONSTRAINT country_area_fk_location_id
+           FOREIGN KEY (`location_id`) REFERENCES location(`location_id`)
+           ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Second, update country_area.location_id based on matching location.location_id region values.
+UPDATE country_area ca
+  SET ca.location_id = (
+      SELECT l.location_id
+        FROM location l
+       WHERE l.planet_id = 1
+         AND IFNULL(l.region_id, 0) = IFNULL(ca.region_id, 0)
+         AND IFNULL(l.sub_region_id, 0) = IFNULL(ca.sub_region_id, 0)
+         AND IFNULL(l.intermediate_region_id, 0) = IFNULL(ca.intermediate_region_id, 0)
+      );
+
+-- meteorite class
+CREATE TABLE IF NOT EXISTS meteorite_class (
+  `meteorite_class_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `code` VARCHAR(255) NOT NULL,
+  `definition` TEXT,
+  `description` TEXT,
+  PRIMARY KEY (`meteorite_class_id`)
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Load data from external file.
+LOAD DATA LOCAL INFILE 'D:/ASUS/Desktop/664/SI664-final/scripts/input/csv/meteorite_classes.csv'
+INTO TABLE meteorite_class
+  CHARACTER SET utf8mb4
+  FIELDS TERMINATED BY '\t'
+  ENCLOSED BY '"'
+  LINES TERMINATED BY '\r\n'
+  IGNORE 1 LINES
+  (code, definition, description);
+
+-- temporary meteorite landing
+CREATE TEMPORARY TABLE temp_meteorite_landing (
+  `meteorite_country_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `country_code` VARCHAR(100),
+  `class_code` VARCHAR(100),
+  `count` INTEGER NOT NULL,
+  `average_mass` FLOAT NOT NULL,
+  `max_mass` FLOAT NOT NULL,
+  `min_mass` FLOAT NOT NULL,
+  PRIMARY KEY (`meteorite_country_id`)
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- Load data from external file.
+-- will convert iso_alpha3_code to country when loading
+LOAD DATA LOCAL INFILE 'D:/ASUS/Desktop/664/SI664-final/scripts/input/csv/meteorite_landings_alter.csv'
+INTO TABLE temp_meteorite_landing
+  CHARACTER SET utf8mb4
+  FIELDS TERMINATED BY '\t'
+  ENCLOSED BY '"'
+  LINES TERMINATED BY '\r\n'
+  IGNORE 1 LINES
+  (country_code, class_code, count, average_mass, max_mass, min_mass);
+
+-- meteorite landing
+CREATE TABLE IF NOT EXISTS meteorite_landing (
+  `meteorite_landing_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+  `country_area_id` INTEGER NOT NULL,
+  `meteorite_class_id` INTEGER NOT NULL,
+  `count` INTEGER NOT NULL,
+  `average_mass` FLOAT NOT NULL,
+  `max_mass` FLOAT NOT NULL,
+  `min_mass` FLOAT NOT NULL,
+  PRIMARY KEY (`meteorite_landing_id`),
+  FOREIGN KEY (`meteorite_class_id`) REFERENCES meteorite_class(`meteorite_class_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (`country_area_id`) REFERENCES country_area(`country_area_id`)
+  ON DELETE RESTRICT ON UPDATE CASCADE
+)
+ENGINE=InnoDB
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+INSERT IGNORE INTO meteorite_landing (
+  `country_area_id`,
+  `meteorite_class_id`,
+  `count`,
+  `average_mass`,
+  `max_mass`,
+  `min_mass`
+)
+SELECT ca.country_area_id, mc.meteorite_class_id, tml.count, tml.average_mass,
+       tml.max_mass, tml.min_mass
+  FROM temp_meteorite_landing tml
+       LEFT JOIN country_area ca
+              ON ca.iso_alpha3_code = tml.country_code
+       LEFT JOIN meteorite_class mc
+              ON mc.code = tml.class_code
+  ORDER BY tml.country_code, tml.count;
+
+DROP TEMPORARY TABLE temp_meteorite_landing;
+
+SET GLOBAL local_infile = FALSE;
