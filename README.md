@@ -30,3 +30,5 @@ Please see [requirements.txt](/requirements.txt)
 - There are 3 List Views: **country/area**, **meteorite class**, and **meteorite landing** (using association table that links country/area and meteorite class). **Meteorite landing** is needed because it also contains some information such as the number of meteorites that have fallen in that country, average mass, etc.
 
 - There are 2 edit forms. One for **Meteorite Class** which will allow for changing definition, and countries it is linked to (which generates entries for Meteorite Landings ListView), the other one is **Meteorite Landing** which will allow for changing **meteorite count**, **average mass**, **max mass**, **min mass**
+
+- The SQL dump doesn't seem to be encoded by UTF-8 by default (It says UTF-16LE). To avoid data corruption, I've left it as is.
