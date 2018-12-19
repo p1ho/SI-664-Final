@@ -352,7 +352,7 @@ CREATE TEMPORARY TABLE temp_meteorite_landing (
   `meteorite_country_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
   `country_code` VARCHAR(100),
   `class_code` VARCHAR(100),
-  `count` INTEGER NOT NULL,
+  `meteorite_count` INTEGER NOT NULL,
   `average_mass` FLOAT NOT NULL,
   `max_mass` FLOAT NOT NULL,
   `min_mass` FLOAT NOT NULL,
@@ -371,14 +371,14 @@ INTO TABLE temp_meteorite_landing
   ENCLOSED BY '"'
   LINES TERMINATED BY '\r\n'
   IGNORE 1 LINES
-  (country_code, class_code, count, average_mass, max_mass, min_mass);
+  (country_code, class_code, meteorite_count, average_mass, max_mass, min_mass);
 
 -- meteorite landing
 CREATE TABLE IF NOT EXISTS meteorite_landing (
   `meteorite_landing_id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
   `country_area_id` INTEGER NOT NULL,
   `meteorite_class_id` INTEGER NOT NULL,
-  `count` INTEGER NOT NULL,
+  `meteorite_count` INTEGER NOT NULL,
   `average_mass` FLOAT NOT NULL,
   `max_mass` FLOAT NOT NULL,
   `min_mass` FLOAT NOT NULL,
@@ -395,19 +395,19 @@ COLLATE utf8mb4_0900_ai_ci;
 INSERT IGNORE INTO meteorite_landing (
   `country_area_id`,
   `meteorite_class_id`,
-  `count`,
+  `meteorite_count`,
   `average_mass`,
   `max_mass`,
   `min_mass`
 )
-SELECT ca.country_area_id, mc.meteorite_class_id, tml.count, tml.average_mass,
+SELECT ca.country_area_id, mc.meteorite_class_id, tml.meteorite_count, tml.average_mass,
        tml.max_mass, tml.min_mass
   FROM temp_meteorite_landing tml
        LEFT JOIN country_area ca
               ON ca.iso_alpha3_code = tml.country_code
        LEFT JOIN meteorite_class mc
               ON mc.code = tml.class_code
-  ORDER BY tml.country_code, tml.count;
+  ORDER BY tml.country_code, tml.meteorite_count;
 
 DROP TEMPORARY TABLE temp_meteorite_landing;
 
