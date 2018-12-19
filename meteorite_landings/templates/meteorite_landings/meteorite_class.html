@@ -1,0 +1,37 @@
+{% extends 'meteorite_landings/base.html' %}
+
+{% block content %}
+
+<article>
+  <header>
+    <div class="row">
+      <div class="col-sm-11">
+        <h2>Meteorite Class ListView</h2>
+      </div>
+      <div class="col-sm-1">
+        {% if user.is_authenticated %}
+          <a class="btn btn-outline-secondary" href="{% url 'meteorite_class_new' %}">new</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  {% include 'pagination/pagination.html' %}
+
+  {% if meteorite_classes %}
+  <ul>
+
+    {% for meteorite_class in meteorite_classes %}
+    <!-- safe filter on for raw HTML stored in database -->
+    <li><a href="{% url 'meteorite_class_detail' meteorite_class.pk %}">{{ meteorite_class.code | safe }}</a></li>
+    {% endfor %}
+
+  </ul>
+  {% else %}
+  <p>No Meteorite Classes are available to view.</p>
+  {% endif %}
+
+  <p>page count: {{ meteorite_classes.count }}</p>
+</article>
+
+{% endblock content %}}

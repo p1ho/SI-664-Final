@@ -1,0 +1,70 @@
+{% extends 'meteorite_landings/base.html' %}
+
+{% load crispy_forms_tags %}
+
+{% block content %}
+
+  <header>
+    <h2>Meteorite Landing Update</h2>
+  </header>
+
+  <form method="post" novalidate>
+  {% csrf_token %}
+
+  <div class="row">
+    <div class="col-sm-2">
+      <p>Country/Area</p>
+    </div>
+    <div class="col-sm-10">
+      <p>{{ meteorite_landing.country_area | safe}}</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-2">
+      <p>Meteorite Class</p>
+    </div>
+    <div class="col-sm-10">
+      <p>{{ meteorite_landing.meteorite_class.code | safe}}</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-2">
+      <p>Meteorite Definition</p>
+    </div>
+    <div class="col-sm-10">
+      <p>{{ meteorite_landing.meteorite_class.definition | safe}}</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-6">
+      {{ form.meteorite_count|as_crispy_field }}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-6">
+      {{ form.average_mass|as_crispy_field }}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-6">
+      {{ form.max_mass|as_crispy_field }}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-6">
+      {{ form.min_mass|as_crispy_field }}
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-outline-success">Update</button>
+  &nbsp;<a class="btn btn-outline-secondary" href="{% url 'meteorite_landing_detail' meteorite_landing.pk %}">cancel</a>
+
+</form>
+
+{% endblock content %}

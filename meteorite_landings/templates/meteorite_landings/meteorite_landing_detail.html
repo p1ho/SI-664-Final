@@ -1,0 +1,86 @@
+{% extends 'meteorite_landings/base.html' %}
+
+   {% load meteorite_landings_extra %}
+
+   <!-- safe filter on for raw HTML stored in database -->
+   {% block content %}
+     <header>
+       <div class="row">
+         <div class="col-sm-10">
+           <h2>
+             {{ meteorite_landing.country_area.iso_alpha3_code | safe}}&nbsp;
+             {{ meteorite_landing.meteorite_class | safe }}
+           </h2>
+         </div>
+         <div class="col-xs-1">
+           {% if user.is_authenticated %}
+             <a class="btn btn-outline-secondary" href="{% url 'meteorite_landing_update' meteorite_landing.pk %}">edit</a>
+           {% endif %}
+         </div>
+       </div>
+     </header>
+
+     <div class="row">
+       <div class="col-sm-2">
+         <p>Country/Area</p>
+       </div>
+       <div class="col-sm-10">
+         <p>{{ meteorite_landing.country_area | safe}}</p>
+       </div>
+     </div>
+
+     <div class="row">
+       <div class="col-sm-2">
+         <p>Meteorite Class</p>
+       </div>
+       <div class="col-sm-10">
+         <p>{{ meteorite_landing.meteorite_class.code | safe}}</p>
+       </div>
+     </div>
+
+     <div class="row">
+       <div class="col-sm-2">
+         <p>Meteorite Definition</p>
+       </div>
+       <div class="col-sm-10">
+         <p>{{ meteorite_landing.meteorite_class.definition | safe}}</p>
+       </div>
+     </div>
+
+     <div class="row">
+       <div class="col-sm-2">
+         <p>Count</p>
+       </div>
+       <div class="col-sm-10">
+         <p>{{ meteorite_landing.meteorite_count | safe}}</p>
+       </div>
+     </div>
+
+     <div class="row">
+       <div class="col-sm-2">
+         <p>Average Mass</p>
+       </div>
+       <div class="col-sm-10">
+         <p>{{ meteorite_landing.average_mass | safe}}</p>
+       </div>
+     </div>
+
+     <div class="row">
+       <div class="col-sm-2">
+         <p>Max recorded mass</p>
+       </div>
+       <div class="col-sm-10">
+         <p>{{ meteorite_landing.max_mass | safe}}</p>
+       </div>
+     </div>
+
+     <div class="row">
+       <div class="col-sm-2">
+         <p>Min recorded mass</p>
+       </div>
+       <div class="col-sm-10">
+         <p>{{ meteorite_landing.min_mass | safe}}</p>
+       </div>
+     </div>
+
+   {% endblock content %}
